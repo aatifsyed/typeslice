@@ -1,5 +1,10 @@
 use std::{iter, marker::PhantomData};
 
+pub struct Named<N, T> {
+    name: N,
+    inner: T,
+}
+
 pub enum Byte<const BYTE: u8> {}
 
 pub enum Empty {}
@@ -13,22 +18,14 @@ pub struct Concat<L, R> {
 
 pub trait TypeVec {
     const LEN: usize;
-    fn write_and(v: &mut [u8]) -> &mut [u8];
-    fn to_vec() -> Vec<u8> {
-        let mut v = vec![0; Self::LEN];
-        Self::write_and(&mut v);
-        v
-    }
     fn bytes() -> impl Iterator<Item = u8>;
+    fn to_vec() -> Vec<u8> {
+        Self::bytes().collect()
+    }
 }
 
 impl TypeVec for Empty {
     const LEN: usize = 0;
-
-    fn write_and(it: &mut [u8]) -> &mut [u8] {
-        it
-    }
-
     fn bytes() -> impl Iterator<Item = u8> {
         iter::empty()
     }
@@ -36,12 +33,6 @@ impl TypeVec for Empty {
 
 impl<const BYTE: u8> TypeVec for Byte<BYTE> {
     const LEN: usize = 1;
-
-    fn write_and(v: &mut [u8]) -> &mut [u8] {
-        v[0] = BYTE;
-        let (_, rest) = v.split_at_mut(Self::LEN);
-        rest
-    }
     fn bytes() -> impl Iterator<Item = u8> {
         iter::once(BYTE)
     }
@@ -53,12 +44,6 @@ where
     R: TypeVec,
 {
     const LEN: usize = L::LEN + R::LEN;
-
-    fn write_and(v: &mut [u8]) -> &mut [u8] {
-        let rest = L::write_and(v);
-        R::write_and(rest)
-    }
-
     fn bytes() -> impl Iterator<Item = u8> {
         L::bytes().chain(R::bytes())
     }
