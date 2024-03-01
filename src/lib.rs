@@ -2,9 +2,8 @@
 
 use core::marker::PhantomData;
 
-/// A list of references to items.
-///
-/// Used as a bridge between a type-level [`Slice`] and runtime logic.
+/// The bridge between a type-level [`Slice`] and runtime logic,
+/// allowing access to elements.
 ///
 /// Supports iteration and indexing, with adapters for compile time use.
 #[derive(Debug)]
@@ -115,15 +114,15 @@ impl<'a, T> Iterator for Iter<'a, T> {
 #[rustfmt::skip]
 macro_rules! for_all_const_types {
     ($do:ident) => {
-        $do!(usize); $do!(u8); $do!(u16); $do!(u32); $do!(u64); $do!(u128);
-        $do!(isize); $do!(i8); $do!(i16); $do!(i32); $do!(i64); $do!(i128);
-        $do!(char);
-        $do!(bool);
+        $do!(Usize/UsizeNil for usize); $do!(U8/U8Nil for u8); $do!(U16/U16Nil for u16); $do!(U32/U32Nil for u32); $do!(U64/U64Nil for u64); $do!(U128/U128Nil for u128);
+        $do!(Isize/IsizeNil for isize); $do!(I8/I8Nil for i8); $do!(I16/I16Nil for i16); $do!(I32/I32Nil for i32); $do!(I64/I64Nil for i64); $do!(I128/I128Nil for i128);
+        $do!(Char/CharNil for char);
+        $do!(Bool/BoolNil for bool);
     };
 }
 
 macro_rules! impl_slice_eq {
-    ($ty:ty) => {
+    ($name:ident/$nil:ident for $ty:ty) => {
         impl List<'_, $ty> {
             /// `const` - enabled equality checking that can fail at compile time.
             pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
@@ -152,47 +151,59 @@ for_all_const_types!(impl_slice_eq);
 
 /// A type-level slice of items.
 pub trait Slice<T: 'static> {
+    /// A list of the actual items.
+    /// See [`List`] for more.
     const LIST: List<'static, T>;
+    /// The number of items in this slice.
     const LEN: usize;
 }
 
+/// Marks a type as unconstructable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Never {}
 
-/// A [`u8`] in a type-level [`Slice`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct U8<const BYTE: u8, Tail> {
-    _never: Never,
-    _phantom: PhantomData<fn() -> Tail>,
-}
+macro_rules! define {
+    ($name:ident/$nil:ident for $ty:ty) => {
+        /// A [`
+        #[doc = stringify!($ty)]
+        /// `] element in a type-level [`Slice`].
+        pub struct $name<const ELEM: $ty, Rest> {
+            _never: Never,
+            _phantom: PhantomData<fn() -> Rest>,
+        }
 
-impl<const BYTE: u8, Tail> Slice<u8> for U8<BYTE, Tail>
-where
-    Tail: Slice<u8>,
-{
-    const LIST: List<'static, u8> = List::Item {
-        head: &BYTE,
-        rest: &Tail::LIST,
+        /// A terminating element in a type level [`Slice`] of [`
+        #[doc = stringify!($ty)]
+        /// `].
+        ///
+        /// This is not common between [`Slice`] types to aid type inference in
+        /// edge cases.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub enum $nil {}
+
+        impl<const ELEM: $ty, Rest: Slice<$ty>> Slice<$ty> for $name<ELEM, Rest> {
+            const LIST: List<'static, $ty> = List::Item {
+                head: &ELEM,
+                rest: &Rest::LIST,
+            };
+            const LEN: usize = 1 + Rest::LEN;
+        }
+
+        impl Slice<$ty> for $nil {
+            const LIST: List<'static, $ty> = List::Empty;
+            const LEN: usize = 0;
+        }
     };
-    const LEN: usize = 1 + Tail::LEN;
 }
-
-/// Terminating element for type-level [`Slice`]s
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Nil {}
-
-impl Slice<u8> for Nil {
-    const LIST: List<'static, u8> = List::Empty;
-    const LEN: usize = 0;
-}
+for_all_const_types!(define);
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use static_assertions::{const_assert, const_assert_eq};
 
-    type Empty = Nil;
-    type Hello = U8<b'h', U8<b'e', U8<b'l', U8<b'l', U8<b'o', Nil>>>>>;
+    type Empty = U8Nil;
+    type Hello = U8<b'h', U8<b'e', U8<b'l', U8<b'l', U8<b'o', U8Nil>>>>>;
 
     const_assert!(Empty::LIST.slice_eq(b""));
     const_assert_eq!(Empty::LEN, 0);
