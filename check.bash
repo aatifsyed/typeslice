@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
+cargo msrv verify -- cargo test
 cargo test --doc
 cargo check-all-features
 cargo build-all-features

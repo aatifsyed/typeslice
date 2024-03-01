@@ -9,6 +9,7 @@ documentation = "https://docs.rs/typeslice"
 homepage = "https://github.com/aatifsyed/typeslice"
 repository = "https://github.com/aatifsyed/typeslice"
 categories = ["no-std", "compilers", "data-structures"]
+rust-version = "1.71.1"
 
 [dependencies]
 typeslice-macros = { path = "macros", optional = true, version = "0.1.1" }
