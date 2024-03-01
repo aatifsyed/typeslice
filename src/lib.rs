@@ -1,6 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::marker::PhantomData;
+/// A type-level slice of items.
+pub trait Slice<T: 'static> {
+    /// A list of the actual items.
+    /// See [`List`] for more.
+    const LIST: List<'static, T>;
+    /// The number of items in this slice.
+    const LEN: usize;
+}
 
 /// The bridge between a type-level [`Slice`] and runtime logic,
 /// allowing access to elements.
@@ -126,97 +133,98 @@ impl<'a, T> core::ops::Index<usize> for List<'a, T> {
     }
 }
 
-/// > The only allowed types of const parameters are u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char and bool.
-/// - https://github.com/rust-lang/reference/blob/1afcfd9c66c8f8d582e01d109cfc15976171dfe0/src/items/generics.md#const-generics
-#[rustfmt::skip]
-macro_rules! for_all_const_types {
-    ($do:ident) => {
-        $do!(Usize/UsizeNil for usize); $do!(U8/U8Nil for u8); $do!(U16/U16Nil for u16); $do!(U32/U32Nil for u32); $do!(U64/U64Nil for u64); $do!(U128/U128Nil for u128);
-        $do!(Isize/IsizeNil for isize); $do!(I8/I8Nil for i8); $do!(I16/I16Nil for i16); $do!(I32/I32Nil for i32); $do!(I64/I64Nil for i64); $do!(I128/I128Nil for i128);
-        $do!(Char/CharNil for char);
-        $do!(Bool/BoolNil for bool);
-    };
-}
+/// Types that implement [`Slice`] for all primitives that can be const-generics.
+///
+/// These types are all _uninhabited_, and cannot be constructed.
+pub mod types {
+    use crate::{List, Slice};
+    use core::marker::PhantomData;
 
-macro_rules! impl_slice_eq {
-    ($name:ident/$nil:ident for $ty:ty) => {
-        impl List<'_, $ty> {
-            /// `const` - enabled equality checking that can fail at compile time.
-            pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
-                if self.len() != slice.len() {
-                    return false;
-                }
+    /// Marks a type as unconstructable.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    enum Never {}
 
-                let mut ix = slice.len();
-                while let Some(nix) = ix.checked_sub(1) {
-                    let Some(ours) = self.get(nix) else {
-                        unreachable!()
-                    };
-                    if *ours != slice[nix] {
+    /// > The only allowed types of const parameters are u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char and bool.
+    /// - https://github.com/rust-lang/reference/blob/1afcfd9c66c8f8d582e01d109cfc15976171dfe0/src/items/generics.md#const-generics
+    #[rustfmt::skip]
+    macro_rules! for_all_const_types {
+        ($do:ident) => {
+            $do!(Usize/UsizeNil for usize); $do!(U8/U8Nil for u8); $do!(U16/U16Nil for u16); $do!(U32/U32Nil for u32); $do!(U64/U64Nil for u64); $do!(U128/U128Nil for u128);
+            $do!(Isize/IsizeNil for isize); $do!(I8/I8Nil for i8); $do!(I16/I16Nil for i16); $do!(I32/I32Nil for i32); $do!(I64/I64Nil for i64); $do!(I128/I128Nil for i128);
+            $do!(Char/CharNil for char);
+            $do!(Bool/BoolNil for bool);
+        };
+    }
+
+    macro_rules! impl_slice_eq {
+        ($name:ident/$nil:ident for $ty:ty) => {
+            impl List<'_, $ty> {
+                /// `const` - enabled equality checking that can fail at compile time.
+                pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
+                    if self.len() != slice.len() {
                         return false;
                     }
-                    ix = nix
+
+                    let mut ix = slice.len();
+                    while let Some(nix) = ix.checked_sub(1) {
+                        let Some(ours) = self.get(nix) else {
+                            unreachable!()
+                        };
+                        if *ours != slice[nix] {
+                            return false;
+                        }
+                        ix = nix
+                    }
+
+                    true
                 }
-
-                true
             }
-        }
-    };
+        };
+    }
+
+    for_all_const_types!(impl_slice_eq);
+
+    macro_rules! define {
+        ($name:ident/$nil:ident for $ty:ty) => {
+            /// A [`
+            #[doc = stringify!($ty)]
+            /// `] element in a type-level [`Slice`].
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            pub struct $name<const ELEM: $ty, Rest> {
+                _never: Never,
+                _phantom: PhantomData<fn() -> Rest>,
+            }
+
+            /// A terminating element in a type level [`Slice`] of [`
+            #[doc = stringify!($ty)]
+            /// `].
+            ///
+            /// This is not common between [`Slice`] types to aid type inference in
+            /// edge cases.
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            pub enum $nil {}
+
+            impl<const ELEM: $ty, Rest: Slice<$ty>> Slice<$ty> for $name<ELEM, Rest> {
+                const LIST: List<'static, $ty> = List::Item {
+                    head: &ELEM,
+                    rest: &Rest::LIST,
+                };
+                const LEN: usize = 1 + Rest::LEN;
+            }
+
+            impl Slice<$ty> for $nil {
+                const LIST: List<'static, $ty> = List::Empty;
+                const LEN: usize = 0;
+            }
+        };
+    }
+    for_all_const_types!(define);
 }
-
-for_all_const_types!(impl_slice_eq);
-
-/// A type-level slice of items.
-pub trait Slice<T: 'static> {
-    /// A list of the actual items.
-    /// See [`List`] for more.
-    const LIST: List<'static, T>;
-    /// The number of items in this slice.
-    const LEN: usize;
-}
-
-/// Marks a type as unconstructable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum Never {}
-
-macro_rules! define {
-    ($name:ident/$nil:ident for $ty:ty) => {
-        /// A [`
-        #[doc = stringify!($ty)]
-        /// `] element in a type-level [`Slice`].
-        pub struct $name<const ELEM: $ty, Rest> {
-            _never: Never,
-            _phantom: PhantomData<fn() -> Rest>,
-        }
-
-        /// A terminating element in a type level [`Slice`] of [`
-        #[doc = stringify!($ty)]
-        /// `].
-        ///
-        /// This is not common between [`Slice`] types to aid type inference in
-        /// edge cases.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub enum $nil {}
-
-        impl<const ELEM: $ty, Rest: Slice<$ty>> Slice<$ty> for $name<ELEM, Rest> {
-            const LIST: List<'static, $ty> = List::Item {
-                head: &ELEM,
-                rest: &Rest::LIST,
-            };
-            const LEN: usize = 1 + Rest::LEN;
-        }
-
-        impl Slice<$ty> for $nil {
-            const LIST: List<'static, $ty> = List::Empty;
-            const LEN: usize = 0;
-        }
-    };
-}
-for_all_const_types!(define);
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::*;
     use static_assertions::{const_assert, const_assert_eq};
 
     type Empty = U8Nil;
