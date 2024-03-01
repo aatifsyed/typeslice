@@ -1,13 +1,14 @@
 [package]
-name = "typestr"
-version = "0.1.0"
+name = "typeslice"
+version = "0.2.0"
 edition = "2021"
-description = "type-level strings and slices"
+description = "type-level slices"
 license = "MIT OR Apache-2.0"
 authors = ["Aatif Syed <aatif@aatifsyed.uk>"]
-documentation = "https://docs.rs/typestr"
-homepage = "https://github.com/aatifsyed/typestr"
-repository = "https://github.com/aatifsyed/typestr"
+documentation = "https://docs.rs/typeslice"
+homepage = "https://github.com/aatifsyed/typeslice"
+repository = "https://github.com/aatifsyed/typeslice"
+categories = ["no-std", "compilers", "data-structures"]
 
 
 [dev-dependencies]

@@ -12,16 +12,18 @@
 //! type Message = Fails<['h', 'e', 'l', 'l', 'o']>;
 //! ```
 //!
-//! This crate emulates the above with recursive [`types`], and the [`Slice`] trait.
+//! This crate emulates the above with recursive [`types`](crate::types),
+//! and the [`TypeSlice`](crate::TypeSlice) trait.
 //! ```rust
-//! type Message = typestr::char!['h', 'e', 'l', 'l', 'o'];
+//! type Message = typeslice::char!['h', 'e', 'l', 'l', 'o'];
 //! ```
 //!
-//! You can inspect the message at `const` time or runtime through the [`List`] in [`Slice::LIST`]:
+//! You can inspect the message at `const` time or runtime through the [`List`]
+//! in [`TypeSlice::LIST`](crate::TypeSlice::LIST):
 //! ```rust
-//! use typestr::Slice;
+//! use typeslice::TypeSlice;
 //!
-//! fn get_reply<T: Slice<char>>() -> &'static str {
+//! fn get_reply<T: TypeSlice<char>>() -> &'static str {
 //!     if T::LIST.slice_eq(&['h', 'e', 'l', 'l', 'o']) {
 //!         return "hi!"
 //!     }
@@ -33,13 +35,13 @@
 //! ```
 //!
 //! If you enjoy this crate, you may also like [`typenum`](https://docs.rs/typenum) or [`frunk`](https://docs.rs/frunk)
-
+#![allow(rustdoc::redundant_explicit_links)] // required for cargo-rdme
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod gen;
 
 /// A type-level slice of items.
-pub trait Slice<T: 'static> {
+pub trait TypeSlice<T: 'static> {
     /// A list of the actual items.
     /// See [`List`] for more.
     const LIST: List<'static, T>;
@@ -47,8 +49,8 @@ pub trait Slice<T: 'static> {
     const LEN: usize;
 }
 
-/// The bridge between a type-level [`Slice`] and runtime logic,
-/// allowing access to elements.
+/// The bridge between a type-level [`TypeSlice`] and runtime logic,
+/// allowing access to elements defined at the type level.
 ///
 /// Supports iteration and indexing, with adapters for compile time use.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -171,11 +173,11 @@ impl<'a, T> core::ops::Index<usize> for List<'a, T> {
     }
 }
 
-/// Types that implement [`Slice`] for all primitives that can be const-generics.
+/// Types that implement [`TypeSlice`] for all primitives that can be const-generics.
 ///
 /// These types are all _uninhabited_, and cannot be constructed.
 pub mod types {
-    use crate::{List, Slice};
+    use crate::{List, TypeSlice};
     use core::marker::PhantomData;
 
     /// Marks a type as unconstructable.
@@ -242,7 +244,7 @@ pub mod types {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
             pub enum $nil {}
 
-            impl<const ELEM: $ty, Rest: Slice<$ty>> Slice<$ty> for $name<ELEM, Rest> {
+            impl<const ELEM: $ty, Rest: TypeSlice<$ty>> TypeSlice<$ty> for $name<ELEM, Rest> {
                 const LIST: List<'static, $ty> = List::Item {
                     head: &ELEM,
                     rest: &Rest::LIST,
@@ -250,7 +252,7 @@ pub mod types {
                 const LEN: usize = 1 + Rest::LEN;
             }
 
-            impl Slice<$ty> for $nil {
+            impl TypeSlice<$ty> for $nil {
                 const LIST: List<'static, $ty> = List::Empty;
                 const LEN: usize = 0;
             }
@@ -293,10 +295,10 @@ mod tests {
     #[test]
     fn gen() {
         const TEMPLATE: &str = r##"
-/// Define a type-level [`Slice`](crate::Slice) of [`~prim~`]s.
+/// Define a type-level [`TypeSlice`](crate::TypeSlice) of [`~prim~`]s.
 /// ```
-/// # use typestr::Slice as _;
-/// type ~example_ty~ = typestr::~prim~![~example_lit~];
+/// # use typeslice::TypeSlice as _;
+/// type ~example_ty~ = typeslice::~prim~![~example_lit~];
 /// assert!(~example_ty~::LIST.slice_eq(&[~example_lit~]))
 /// ```
 #[macro_export]
