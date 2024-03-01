@@ -1,56 +1,153 @@
-use std::{iter, marker::PhantomData};
+#![cfg_attr(not(feature = "std"), no_std)]
 
-pub struct Named<N, T> {
-    name: N,
-    inner: T,
+use core::marker::PhantomData;
+
+#[derive(Debug)]
+pub enum ConsSlice<'a, T> {
+    Cons { head: &'a T, next: &'a Self },
+    Empty,
 }
 
-pub enum Byte<const BYTE: u8> {}
+impl<'a, T> Clone for ConsSlice<'a, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<'a, T> Copy for ConsSlice<'a, T> {}
 
-pub enum Empty {}
+impl<'a, T> Default for ConsSlice<'a, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
+impl<'a, T> ConsSlice<'a, T> {
+    pub const fn new() -> Self {
+        Self::Empty
+    }
+    pub const fn len(&self) -> usize {
+        match self {
+            ConsSlice::Cons { head: _, next } => 1 + next.len(),
+            ConsSlice::Empty => 0,
+        }
+    }
+    pub const fn get(&self, ix: usize) -> Option<&T> {
+        match (self, ix) {
+            (Self::Empty, _) => None,
+            (Self::Cons { head, next: _ }, 0) => Some(head),
+            (Self::Cons { head: _, next }, _) => match ix.checked_sub(1) {
+                Some(nix) => next.get(nix),
+                None => None,
+            },
+        }
+    }
+    pub const fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
+    }
+    pub const fn into_option(self) -> Option<(&'a T, &'a Self)> {
+        match self {
+            ConsSlice::Cons { head, next } => Some((head, next)),
+            ConsSlice::Empty => None,
+        }
+    }
+    pub const fn iter(&self) -> ConsSliceIter<'a, T> {
+        ConsSliceIter { inner: *self }
+    }
+}
+
+impl<'a, T> IntoIterator for ConsSlice<'a, T> {
+    type Item = &'a T;
+
+    type IntoIter = ConsSliceIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+pub struct ConsSliceIter<'a, T> {
+    inner: ConsSlice<'a, T>,
+}
+
+impl<'a, T> Iterator for ConsSliceIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.into_option() {
+            Some((t, next)) => {
+                self.inner = *next;
+                Some(t)
+            }
+            None => None,
+        }
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.inner.len(), Some(self.inner.len()))
+    }
+}
+
+macro_rules! impl_slice_eq {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl ConsSlice<'_, $ty> {
+                pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
+                    if self.len() != slice.len() {
+                        return false;
+                    }
+
+                    let mut ix = slice.len();
+                    while let Some(nix) = ix.checked_sub(1) {
+                        let Some(ours) = self.get(nix) else {
+                            unreachable!()
+                        };
+                        if *ours != slice[nix] {
+                            return false;
+                        }
+                        ix = nix
+                    }
+
+                    true
+                }
+            }
+        )*
+    };
+}
+
+impl_slice_eq! {
+    usize, u8, u16, u32, u64, u128,
+    isize, i8, i16, i32, i64, i128,
+    char,
+    bool
+}
+
+pub trait ByteList {
+    const WALK: ConsSlice<'static, u8>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Never {}
 
-pub struct Concat<L, R> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ByteCons<const BYTE: u8, Tail> {
     _never: Never,
-    _phantom: PhantomData<fn() -> (L, R)>,
+    _phantom: PhantomData<fn() -> Tail>,
 }
 
-pub trait TypeVec {
-    const LEN: usize;
-    fn bytes() -> impl Iterator<Item = u8>;
-    fn to_vec() -> Vec<u8> {
-        Self::bytes().collect()
-    }
-}
-
-impl TypeVec for Empty {
-    const LEN: usize = 0;
-    fn bytes() -> impl Iterator<Item = u8> {
-        iter::empty()
-    }
-}
-
-impl<const BYTE: u8> TypeVec for Byte<BYTE> {
-    const LEN: usize = 1;
-    fn bytes() -> impl Iterator<Item = u8> {
-        iter::once(BYTE)
-    }
-}
-
-impl<L, R> TypeVec for Concat<L, R>
+impl<const BYTE: u8, Tail> ByteList for ByteCons<BYTE, Tail>
 where
-    L: TypeVec,
-    R: TypeVec,
+    Tail: ByteList,
 {
-    const LEN: usize = L::LEN + R::LEN;
-    fn bytes() -> impl Iterator<Item = u8> {
-        L::bytes().chain(R::bytes())
-    }
+    const WALK: ConsSlice<'static, u8> = ConsSlice::Cons {
+        head: &BYTE,
+        next: &Tail::WALK,
+    };
 }
 
-pub const fn equal_len<T: TypeVec>(b: &[u8]) -> bool {
-    T::LEN == b.len()
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Empty {}
+
+impl ByteList for Empty {
+    const WALK: ConsSlice<'static, u8> = ConsSlice::Empty;
 }
 
 #[cfg(test)]
@@ -58,19 +155,18 @@ mod tests {
     use super::*;
     use static_assertions::const_assert;
 
-    const_assert!(equal_len::<Empty>(b""));
-    const_assert!(equal_len::<Concat<Empty, Empty>>(b""));
-    const_assert!(equal_len::<Concat<Byte<b'A'>, Empty>>(b"B"));
+    const EMPTY: ConsSlice<'_, u8> = <Empty>::WALK;
+    const HELLO: ConsSlice<'_, u8> = <ByteCons<
+        b'h',
+        ByteCons<b'e', ByteCons<b'l', ByteCons<b'l', ByteCons<b'o', Empty>>>>,
+    >>::WALK;
+
+    const_assert!(EMPTY.slice_eq(b""));
+    const_assert!(HELLO.slice_eq(b"hello"));
 
     #[test]
     fn test() {
-        assert_eq!(Empty::to_vec(), b"");
-        assert_eq!(Concat::<Byte<b'A'>, Empty>::to_vec(), b"A");
-        assert_eq!(
-            Concat::<Concat<Byte<b'A'>, Byte<b'B'>>, Empty>::to_vec(),
-            b"AB"
-        );
-        type Abc = Concat<Concat<Concat<Byte<b'A'>, Byte<b'B'>>, Byte<b'C'>>, Empty>;
-        assert_eq!(Abc::to_vec(), b"ABC");
+        itertools::assert_equal(EMPTY, b"");
+        itertools::assert_equal(HELLO, b"hello");
     }
 }
