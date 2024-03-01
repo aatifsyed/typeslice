@@ -72,15 +72,15 @@ impl<'a, T> List<'a, T> {
     }
     /// Iterate the elements in the list.
     /// Iterator type is `&T`.
-    pub const fn iter(&self) -> ConsListIter<'a, T> {
-        ConsListIter { inner: *self }
+    pub const fn iter(&self) -> Iter<'a, T> {
+        Iter { inner: *self }
     }
 }
 
 impl<'a, T> IntoIterator for List<'a, T> {
     type Item = &'a T;
 
-    type IntoIter = ConsListIter<'a, T>;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -89,11 +89,11 @@ impl<'a, T> IntoIterator for List<'a, T> {
 
 /// Iterator over the elements in a list.
 /// See [`List::iter`].
-pub struct ConsListIter<'a, T> {
+pub struct Iter<'a, T> {
     inner: List<'a, T>,
 }
 
-impl<'a, T> Iterator for ConsListIter<'a, T> {
+impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
