@@ -31,6 +31,9 @@ fn get_reply<T: TypeSlice<char>>() -> &'static str {
     if T::LIST.slice_eq(&['h', 'i']) {
         return "hello"
     }
+    if T::LIST.str_eq("👋👋") {
+        return "😎😎"
+    }
     if T::LIST.into_iter().copied().eq("salut".chars()) {
         return "bonjour"
     }
