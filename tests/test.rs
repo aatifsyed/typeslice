@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![cfg(feature = "macros")]
 
 use static_assertions::assert_type_eq_all;
 
