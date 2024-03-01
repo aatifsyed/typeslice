@@ -110,40 +110,45 @@ impl<'a, T> Iterator for ConsListIter<'a, T> {
     }
 }
 
-macro_rules! impl_slice_eq {
-    ($($ty:ty),* $(,)?) => {
-        $(
-            impl List<'_, $ty> {
-                /// `const` - enabled equality checking that can fail at compile time.
-                pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
-                    if self.len() != slice.len() {
-                        return false;
-                    }
-
-                    let mut ix = slice.len();
-                    while let Some(nix) = ix.checked_sub(1) {
-                        let Some(ours) = self.get(nix) else {
-                            unreachable!()
-                        };
-                        if *ours != slice[nix] {
-                            return false;
-                        }
-                        ix = nix
-                    }
-
-                    true
-                }
-            }
-        )*
+/// > The only allowed types of const parameters are u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char and bool.
+/// - https://github.com/rust-lang/reference/blob/1afcfd9c66c8f8d582e01d109cfc15976171dfe0/src/items/generics.md#const-generics
+#[rustfmt::skip]
+macro_rules! for_all_const_types {
+    ($do:ident) => {
+        $do!(usize); $do!(u8); $do!(u16); $do!(u32); $do!(u64); $do!(u128);
+        $do!(isize); $do!(i8); $do!(i16); $do!(i32); $do!(i64); $do!(i128);
+        $do!(char);
+        $do!(bool);
     };
 }
 
-impl_slice_eq! {
-    usize, u8, u16, u32, u64, u128,
-    isize, i8, i16, i32, i64, i128,
-    char,
-    bool
+macro_rules! impl_slice_eq {
+    ($ty:ty) => {
+        impl List<'_, $ty> {
+            /// `const` - enabled equality checking that can fail at compile time.
+            pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
+                if self.len() != slice.len() {
+                    return false;
+                }
+
+                let mut ix = slice.len();
+                while let Some(nix) = ix.checked_sub(1) {
+                    let Some(ours) = self.get(nix) else {
+                        unreachable!()
+                    };
+                    if *ours != slice[nix] {
+                        return false;
+                    }
+                    ix = nix
+                }
+
+                true
+            }
+        }
+    };
 }
+
+for_all_const_types!(impl_slice_eq);
 
 /// A type-level slice of items.
 pub trait Slice<T: 'static> {
