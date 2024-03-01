@@ -20,7 +20,7 @@ and the [`TypeSlice`](https://docs.rs/typeslice/latest/typeslice/trait.TypeSlice
 type Message = typeslice::char!['h', 'e', 'l', 'l', 'o'];
 ```
 
-You can inspect the message at `const` time or runtime through the [`List`]
+You can inspect the message at `const` time or runtime through the [`List`](https://docs.rs/typeslice/latest/typeslice/enum.List.html)
 in `TypeSlice::LIST`:
 ```rust
 use typeslice::TypeSlice;

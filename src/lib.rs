@@ -18,7 +18,7 @@
 //! type Message = typeslice::char!['h', 'e', 'l', 'l', 'o'];
 //! ```
 //!
-//! You can inspect the message at `const` time or runtime through the [`List`]
+//! You can inspect the message at `const` time or runtime through the [`List`](crate::List)
 //! in [`TypeSlice::LIST`](crate::TypeSlice::LIST):
 //! ```rust
 //! use typeslice::TypeSlice;
@@ -49,7 +49,7 @@ pub trait TypeSlice<T: 'static> {
     const LEN: usize;
 }
 
-/// The bridge between a type-level [`TypeSlice`] and runtime logic,
+/// The bridge between a [`TypeSlice`] and runtime logic,
 /// allowing access to elements defined at the type level.
 ///
 /// Supports iteration and indexing, with adapters for compile time use.
@@ -228,18 +228,18 @@ pub mod types {
         ($name:ident/$nil:ident for $ty:ty) => {
             /// A [`
             #[doc = stringify!($ty)]
-            /// `] element in a type-level [`Slice`].
+            /// `] element in a [`TypeSlice`].
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
             pub struct $name<const ELEM: $ty, Rest> {
                 _never: Never,
                 _phantom: PhantomData<fn() -> Rest>,
             }
 
-            /// A terminating element in a type level [`Slice`] of [`
+            /// A terminating element in a [`TypeSlice`] of [`
             #[doc = stringify!($ty)]
             /// `].
             ///
-            /// This is not common between [`Slice`] types to aid type inference in
+            /// This is not common between [`TypeSlice`] types to aid type inference in
             /// edge cases.
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
             pub enum $nil {}
@@ -362,7 +362,11 @@ macro_rules! ~prim~ {
     fn readme() {
         assert!(
             std::process::Command::new("cargo")
-                .args(["rdme", "--check"])
+                .args([
+                    "rdme",
+                    "--check",
+                    "--no-fail-on-warnings" // TODO(aatifsyed): linking to associated constant doesn't work
+                ])
                 .output()
                 .expect("couldn't run `cargo rdme`")
                 .status
