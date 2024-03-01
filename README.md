@@ -18,6 +18,8 @@ This crate emulates the above with recursive [`types`](https://docs.rs/typeslice
 and the [`TypeSlice`](https://docs.rs/typeslice/latest/typeslice/trait.TypeSlice.html) trait.
 ```rust
 type Message = typeslice::char!['h', 'e', 'l', 'l', 'o'];
+// or, equivalently
+type Message = typeslice::from_str!("hello");
 ```
 
 You can inspect the message at `const` time or runtime through the [`List`](https://docs.rs/typeslice/latest/typeslice/enum.List.html)
@@ -35,7 +37,7 @@ fn get_reply<T: TypeSlice<char>>() -> &'static str {
     "¿que?"
 }
 
-assert_eq!(get_reply::<typeslice::char!['h', 'i']>(), "hello");
+assert_eq!(get_reply::<typeslice::from_str!("hi")>(), "hello");
 ```
 
 If you enjoy this crate, you may also like [`typenum`](https://docs.rs/typenum) or [`frunk`](https://docs.rs/frunk)

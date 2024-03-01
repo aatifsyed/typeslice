@@ -10,6 +10,8 @@ homepage = "https://github.com/aatifsyed/typeslice"
 repository = "https://github.com/aatifsyed/typeslice"
 categories = ["no-std", "compilers", "data-structures"]
 
+[dependencies]
+typeslice-macros = { path = "macros", optional = true }
 
 [dev-dependencies]
 itertools = { version = "0.12.1", default-features = false }
@@ -17,4 +19,8 @@ static_assertions = "1.1.0"
 
 [features]
 std = []
-default = ["std"]
+default = ["std", "macros"]
+macros = ["dep:typeslice-macros"]
+
+[workspace]
+members = ["macros"]

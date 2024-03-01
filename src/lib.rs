@@ -15,7 +15,11 @@
 //! This crate emulates the above with recursive [`types`](crate::types),
 //! and the [`TypeSlice`](crate::TypeSlice) trait.
 //! ```rust
+//! # const _: () = {
 //! type Message = typeslice::char!['h', 'e', 'l', 'l', 'o'];
+//! # };
+//! // or, equivalently
+//! type Message = typeslice::from_str!("hello");
 //! ```
 //!
 //! You can inspect the message at `const` time or runtime through the [`List`](crate::List)
@@ -33,14 +37,39 @@
 //!     "¿que?"
 //! }
 //!
-//! assert_eq!(get_reply::<typeslice::char!['h', 'i']>(), "hello");
+//! assert_eq!(get_reply::<typeslice::from_str!("hi")>(), "hello");
 //! ```
 //!
 //! If you enjoy this crate, you may also like [`typenum`](https://docs.rs/typenum) or [`frunk`](https://docs.rs/frunk)
 #![allow(rustdoc::redundant_explicit_links)] // required for cargo-rdme
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(do_doc_cfg, feature(doc_cfg))]
 
 mod gen;
+
+/// Define a type-level [`TypeSlice`](crate::TypeSlice) of [`prim@u8`]s using a single bytestring literal.
+/// This can be more ergonomic than specifying each byte individually using the [`macro@u8`] macro.
+/// ```
+/// # use typeslice::TypeSlice as _;
+/// type Binary = typeslice::from_bytes![b"hello"];
+/// assert!(Binary::LIST.slice_eq(b"hello"))
+/// ```
+/// This is only available when the `macros` feature of this crate is enabled, and it is enabled by default.
+#[cfg(feature = "macros")]
+#[cfg_attr(do_doc_cfg, doc(cfg(feature = "macros")))]
+pub use typeslice_macros::from_bytes;
+
+/// Define a type-level [`TypeSlice`](crate::TypeSlice) of [`prim@char`]s using a single string literal.
+/// This can be more ergonomic than specifying each char individually using the [`macro@char`] macro.
+/// ```
+/// # use typeslice::TypeSlice as _;
+/// type Message = typeslice::from_str!["hello"];
+/// assert!(Message::LIST.slice_eq(&['h', 'e', 'l', 'l', 'o']))
+/// ```
+/// This is only available when the `macros` feature of this crate is enabled, and it is enabled by default.
+#[cfg(feature = "macros")]
+#[cfg_attr(do_doc_cfg, doc(cfg(feature = "macros")))]
+pub use typeslice_macros::from_str;
 
 /// A type-level slice of items.
 pub trait TypeSlice<T: 'static> {
