@@ -3,6 +3,13 @@ name = "typeslice-macros"
 version = "0.1.0"
 edition = "2021"
 readme = "../README.md"
+description = "type-level slices"
+license = "MIT OR Apache-2.0"
+authors = ["Aatif Syed <aatif@aatifsyed.uk>"]
+documentation = "https://docs.rs/typeslice"
+homepage = "https://github.com/aatifsyed/typeslice"
+repository = "https://github.com/aatifsyed/typeslice"
+categories = ["no-std", "compilers", "data-structures"]
 
 [lib]
 proc-macro = true
@@ -10,4 +17,8 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0.78"
 quote = "1.0.35"
-syn = { version = "2.0.52", default-features = false, features = ["parsing", "printing", "proc-macro"] }
+syn = { version = "2.0.52", default-features = false, features = [
+    "parsing",
+    "printing",
+    "proc-macro",
+] }
