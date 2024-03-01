@@ -4,30 +4,30 @@ use core::marker::PhantomData;
 
 /// A list of references to items.
 ///
-/// Used as a bridge between e.g a [`Bytes`] and runtime logic.
+/// Used as a bridge between a type-level [`Slice`] and runtime logic.
 ///
 /// Supports iteration and indexing, with adapters for compile time use.
 #[derive(Debug)]
-pub enum ConsList<'a, T> {
-    Cons { head: &'a T, next: &'a Self },
+pub enum List<'a, T> {
+    Item { head: &'a T, rest: &'a Self },
     Empty,
 }
 
-impl<'a, T> Clone for ConsList<'a, T> {
+impl<'a, T> Clone for List<'a, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<'a, T> Copy for ConsList<'a, T> {}
+impl<'a, T> Copy for List<'a, T> {}
 
-impl<'a, T> Default for ConsList<'a, T> {
+impl<'a, T> Default for List<'a, T> {
     /// Create an empty slice.
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, T> ConsList<'a, T> {
+impl<'a, T> List<'a, T> {
     /// Create an empty list.
     pub const fn new() -> Self {
         Self::Empty
@@ -35,16 +35,25 @@ impl<'a, T> ConsList<'a, T> {
     /// Return the number of elements in the list.
     pub const fn len(&self) -> usize {
         match self {
-            ConsList::Cons { head: _, next } => 1 + next.len(),
-            ConsList::Empty => 0,
+            List::Item {
+                head: _,
+                rest: next,
+            } => 1 + next.len(),
+            List::Empty => 0,
         }
     }
     /// Get an item by index.
     pub const fn get(&self, ix: usize) -> Option<&T> {
         match (self, ix) {
             (Self::Empty, _) => None,
-            (Self::Cons { head, next: _ }, 0) => Some(head),
-            (Self::Cons { head: _, next }, _) => match ix.checked_sub(1) {
+            (Self::Item { head, rest: _ }, 0) => Some(head),
+            (
+                Self::Item {
+                    head: _,
+                    rest: next,
+                },
+                _,
+            ) => match ix.checked_sub(1) {
                 Some(nix) => next.get(nix),
                 None => None,
             },
@@ -57,8 +66,8 @@ impl<'a, T> ConsList<'a, T> {
     /// Return [`None`] if this list is empty, else the next item and its successor.
     pub const fn into_option(self) -> Option<(&'a T, &'a Self)> {
         match self {
-            ConsList::Cons { head, next } => Some((head, next)),
-            ConsList::Empty => None,
+            List::Item { head, rest: next } => Some((head, next)),
+            List::Empty => None,
         }
     }
     /// Iterate the elements in the list.
@@ -68,7 +77,7 @@ impl<'a, T> ConsList<'a, T> {
     }
 }
 
-impl<'a, T> IntoIterator for ConsList<'a, T> {
+impl<'a, T> IntoIterator for List<'a, T> {
     type Item = &'a T;
 
     type IntoIter = ConsListIter<'a, T>;
@@ -79,9 +88,9 @@ impl<'a, T> IntoIterator for ConsList<'a, T> {
 }
 
 /// Iterator over the elements in a list.
-/// See [`ConsList::iter`].
+/// See [`List::iter`].
 pub struct ConsListIter<'a, T> {
-    inner: ConsList<'a, T>,
+    inner: List<'a, T>,
 }
 
 impl<'a, T> Iterator for ConsListIter<'a, T> {
@@ -104,7 +113,7 @@ impl<'a, T> Iterator for ConsListIter<'a, T> {
 macro_rules! impl_slice_eq {
     ($($ty:ty),* $(,)?) => {
         $(
-            impl ConsList<'_, $ty> {
+            impl List<'_, $ty> {
                 /// `const` - enabled equality checking that can fail at compile time.
                 pub const fn slice_eq(&self, slice: &[$ty]) -> bool {
                     if self.len() != slice.len() {
@@ -136,53 +145,58 @@ impl_slice_eq! {
     bool
 }
 
-pub trait Bytes {
-    const LIST: ConsList<'static, u8>;
+/// A type-level slice of items.
+pub trait Slice<T: 'static> {
+    const LIST: List<'static, T>;
+    const LEN: usize;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Never {}
 
+/// A [`u8`] in a type-level [`Slice`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ByteCons<const BYTE: u8, Tail> {
+pub struct U8<const BYTE: u8, Tail> {
     _never: Never,
     _phantom: PhantomData<fn() -> Tail>,
 }
 
-impl<const BYTE: u8, Tail> Bytes for ByteCons<BYTE, Tail>
+impl<const BYTE: u8, Tail> Slice<u8> for U8<BYTE, Tail>
 where
-    Tail: Bytes,
+    Tail: Slice<u8>,
 {
-    const LIST: ConsList<'static, u8> = ConsList::Cons {
+    const LIST: List<'static, u8> = List::Item {
         head: &BYTE,
-        next: &Tail::LIST,
+        rest: &Tail::LIST,
     };
+    const LEN: usize = 1 + Tail::LEN;
 }
 
+/// Terminating element for type-level [`Slice`]s
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Empty {}
+pub enum Nil {}
 
-impl Bytes for Empty {
-    const LIST: ConsList<'static, u8> = ConsList::Empty;
+impl Slice<u8> for Nil {
+    const LIST: List<'static, u8> = List::Empty;
+    const LEN: usize = 0;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use static_assertions::const_assert;
+    use static_assertions::{const_assert, const_assert_eq};
 
-    const EMPTY: ConsList<'_, u8> = <Empty>::LIST;
-    const HELLO: ConsList<'_, u8> = <ByteCons<
-        b'h',
-        ByteCons<b'e', ByteCons<b'l', ByteCons<b'l', ByteCons<b'o', Empty>>>>,
-    >>::LIST;
+    type Empty = Nil;
+    type Hello = U8<b'h', U8<b'e', U8<b'l', U8<b'l', U8<b'o', Nil>>>>>;
 
-    const_assert!(EMPTY.slice_eq(b""));
-    const_assert!(HELLO.slice_eq(b"hello"));
+    const_assert!(Empty::LIST.slice_eq(b""));
+    const_assert_eq!(Empty::LEN, 0);
+    const_assert!(Hello::LIST.slice_eq(b"hello"));
+    const_assert_eq!(Hello::LEN, 5);
 
     #[test]
     fn test() {
-        itertools::assert_equal(EMPTY, b"");
-        itertools::assert_equal(HELLO, b"hello");
+        itertools::assert_equal(Empty::LIST, b"");
+        itertools::assert_equal(Hello::LIST, b"hello");
     }
 }
