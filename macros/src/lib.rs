@@ -1,10 +1,10 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{LitByte, LitByteStr, LitChar, LitStr};
+use syn::{parse_macro_input, LitByte, LitByteStr, LitChar, LitStr};
 
 #[proc_macro]
 pub fn from_str(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let item = syn::parse_macro_input!(item as Option<LitStr>);
+    let item = parse_macro_input!(item as Option<LitStr>);
     expand_chars(item)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
@@ -12,8 +12,16 @@ pub fn from_str(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 #[proc_macro]
 pub fn from_bytes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let item = syn::parse_macro_input!(item as Option<LitByteStr>);
+    let item = parse_macro_input!(item as Option<LitByteStr>);
     expand_bytes(item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro]
+pub fn utf8(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let item = parse_macro_input!(item as Option<LitStr>);
+    expand_utf8(item)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -38,6 +46,16 @@ fn expand_chars(lit: Option<LitStr>) -> syn::Result<TokenStream> {
             Chars::Cons(LitChar::new(el, it.span()), Box::new(acc))
         }),
         None => Chars::Nil,
+    };
+    Ok(root.into_token_stream())
+}
+
+fn expand_utf8(lit: Option<LitStr>) -> syn::Result<TokenStream> {
+    let root = match lit {
+        Some(it) => it.value().bytes().rev().fold(Bytes::Nil, |acc, el| {
+            Bytes::Cons(LitByte::new(el, it.span()), Box::new(acc))
+        }),
+        None => Bytes::Nil,
     };
     Ok(root.into_token_stream())
 }

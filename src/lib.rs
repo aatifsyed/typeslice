@@ -46,6 +46,7 @@
 #![cfg_attr(do_doc_cfg, feature(doc_cfg))]
 
 mod gen;
+mod utf8;
 
 /// Define a type-level [`TypeSlice`](crate::TypeSlice) of [`prim@u8`]s using a single bytestring literal.
 /// This can be more ergonomic than specifying each byte individually using the [`macro@u8`] macro.
@@ -70,6 +71,19 @@ pub use typeslice_macros::from_bytes;
 #[cfg(feature = "macros")]
 #[cfg_attr(do_doc_cfg, doc(cfg(feature = "macros")))]
 pub use typeslice_macros::from_str;
+
+/// Define a type-level [`TypeSlice`](crate::TypeSlice) of [`prim@u8`]s using a single string literal, encoding it in utf8
+/// ```
+/// # use typeslice::TypeSlice;
+/// use static_assertions::assert_impl_all;
+/// type Message = typeslice::utf8!["𓀕"];
+/// assert_impl_all!(Message: TypeSlice<u8>); // the string has been encoded as utf8 bytes
+/// assert!(Message::LIST.slice_eq(&[240, 147, 128, 149]));
+/// ```
+/// This is only available when the `macros` feature of this crate is enabled, and it is enabled by default.
+#[cfg(feature = "macros")]
+#[cfg_attr(do_doc_cfg, doc(cfg(feature = "macros")))]
+pub use typeslice_macros::utf8;
 
 /// A type-level slice of items.
 pub trait TypeSlice<T: 'static> {
@@ -199,6 +213,51 @@ impl<'a, T> core::ops::Index<usize> for List<'a, T> {
                     self.len(),
                     index
                 )
+            }
+        }
+    }
+}
+
+macro_rules! next_in_list {
+    ($ident:ident) => {
+        match List::into_option(*$ident) {
+            Some((t, next)) => {
+                $ident = next;
+                Some(*t)
+            }
+            None => None,
+        }
+    };
+}
+
+impl<'a> List<'a, char> {
+    /// `const` - enabled equality checking that can fail at compile time.
+    /// ```rust
+    /// # use typeslice::TypeSlice;
+    /// use static_assertions::assert_impl_all;
+    /// type Message = typeslice::from_str!("I am a 𓀕");
+    /// assert_impl_all!(Message: TypeSlice<char>);
+    /// assert!(Message::LIST.str_eq("I am a 𓀕"));
+    /// ```
+    pub const fn str_eq(&self, s: &str) -> bool {
+        use crate::utf8::Pop;
+
+        let mut us = self;
+        let mut them = s.as_bytes();
+
+        loop {
+            match (next_in_list!(us), utf8::pop(them)) {
+                (Some(ours), Pop::Ok(theirs)) => match ours == theirs {
+                    true => {
+                        let (_popped, next) = them.split_at(ours.len_utf8());
+                        them = next;
+                        continue;
+                    }
+                    false => return false, // found difference
+                },
+                (None, Pop::Empty) => return true, // reached the end, all good
+                (_, Pop::Invalid | Pop::Truncated) => panic!("invalid utf8-8"),
+                (None, Pop::Ok(_)) | (Some(_), Pop::Empty) => return false, //length mismatch
             }
         }
     }
