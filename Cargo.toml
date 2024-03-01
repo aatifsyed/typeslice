@@ -1,6 +1,6 @@
 [package]
 name = "typeslice"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "type-level slices"
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ repository = "https://github.com/aatifsyed/typeslice"
 categories = ["no-std", "compilers", "data-structures"]
 
 [dependencies]
-typeslice-macros = { path = "macros", optional = true, version = "0.1.0" }
+typeslice-macros = { path = "macros", optional = true, version = "0.1.1" }
 
 [dev-dependencies]
 itertools = { version = "0.12.1", default-features = false }
