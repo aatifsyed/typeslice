@@ -1,3 +1,39 @@
+//! Type-level slices of primitives.
+//!
+//! Rust permits certain constant parameters in generics:
+//! ```rust
+//! struct Foo<const CHAR: char>;
+//! ```
+//!
+//! Presently these are limited to the primitive integers, [`prim@char`] and [`prim@bool`],
+//! so e.g slices of different chars cannot be represented.
+//! ```rust,compile_fail
+//! struct Fails<const CHARS: [char]>;
+//! type Message = Fails<['h', 'e', 'l', 'l', 'o']>;
+//! ```
+//!
+//! This crate emulates the above with recursive [`types`], and the [`Slice`] trait.
+//! ```rust
+//! type Message = typestr::char!['h', 'e', 'l', 'l', 'o'];
+//! ```
+//!
+//! You can inspect the message at `const` time or runtime through the [`List`] in [`Slice::LIST`]:
+//! ```rust
+//! use typestr::Slice;
+//!
+//! fn get_reply<T: Slice<char>>() -> &'static str {
+//!     if T::LIST.slice_eq(&['h', 'e', 'l', 'l', 'o']) {
+//!         return "hi!"
+//!     }
+//!     if T::LIST.into_iter().copied().eq("bonjour".chars()) {
+//!         return "salut!"
+//!     }
+//!     "I didn't understand that"
+//! }
+//! ```
+//!
+//! If you enjoy this crate, you may also like [`typenum`](https://docs.rs/typenum) or [`frunk`](https://docs.rs/frunk)
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod gen;
@@ -15,7 +51,7 @@ pub trait Slice<T: 'static> {
 /// allowing access to elements.
 ///
 /// Supports iteration and indexing, with adapters for compile time use.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum List<'a, T> {
     Item { head: &'a T, rest: &'a Self },
     Empty,
@@ -237,10 +273,20 @@ mod tests {
     const_assert!(Hello::LIST.slice_eq(b"hello"));
     const_assert_eq!(Hello::LEN, 5);
 
+    type Empty2 = u8![];
+    type Hello2 = u8![0x68, 0x65, 0x6c, 0x6c, 0x6f];
+
+    const_assert!(Empty2::LIST.slice_eq(b""));
+    const_assert_eq!(Empty2::LEN, 0);
+    const_assert!(Hello2::LIST.slice_eq(b"hello"));
+    const_assert_eq!(Hello2::LEN, 5);
+
     #[test]
     fn test() {
         itertools::assert_equal(Empty::LIST, b"");
         itertools::assert_equal(Hello::LIST, b"hello");
+        itertools::assert_equal(Empty2::LIST, b"");
+        itertools::assert_equal(Hello2::LIST, b"hello");
     }
 
     #[cfg(feature = "std")]
