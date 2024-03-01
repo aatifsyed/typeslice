@@ -26,14 +26,16 @@ in `TypeSlice::LIST`:
 use typeslice::TypeSlice;
 
 fn get_reply<T: TypeSlice<char>>() -> &'static str {
-    if T::LIST.slice_eq(&['h', 'e', 'l', 'l', 'o']) {
-        return "hi!"
+    if T::LIST.slice_eq(&['h', 'i']) {
+        return "hello"
     }
-    if T::LIST.into_iter().copied().eq("bonjour".chars()) {
-        return "salut!"
+    if T::LIST.into_iter().copied().eq("salut".chars()) {
+        return "bonjour"
     }
-    "I didn't understand that"
+    "¿que?"
 }
+
+assert_eq!(get_reply::<typeslice::char!['h', 'i']>(), "hello");
 ```
 
 If you enjoy this crate, you may also like [`typenum`](https://docs.rs/typenum) or [`frunk`](https://docs.rs/frunk)
