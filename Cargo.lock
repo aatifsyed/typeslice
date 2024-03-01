@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "typeslice"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "itertools",
  "static_assertions",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "typeslice-macros"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "proc-macro2",
  "quote",

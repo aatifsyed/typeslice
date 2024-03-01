@@ -1,6 +1,6 @@
 [package]
 name = "typeslice"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 description = "type-level slices"
 license = "MIT OR Apache-2.0"
@@ -12,7 +12,7 @@ categories = ["no-std", "compilers", "data-structures"]
 rust-version = "1.71.1"
 
 [dependencies]
-typeslice-macros = { path = "macros", optional = true, version = "0.1.1" }
+typeslice-macros = { path = "macros", optional = true, version = "0.1.2" }
 
 [dev-dependencies]
 itertools = { version = "0.12.1", default-features = false }
