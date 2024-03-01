@@ -2,6 +2,12 @@
 name = "typestr"
 version = "0.1.0"
 edition = "2021"
+description = "type-level strings and slices"
+license = "MIT OR Apache-2.0"
+authors = ["Aatif Syed <aatif@aatifsyed.uk>"]
+documentation = "https://docs.rs/typestr"
+homepage = "https://github.com/aatifsyed/typestr"
+repository = "https://github.com/aatifsyed/typestr"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
