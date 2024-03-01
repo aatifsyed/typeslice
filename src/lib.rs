@@ -109,6 +109,23 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+impl<'a, T> core::ops::Index<usize> for List<'a, T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match self.get(index) {
+            Some(it) => it,
+            None => {
+                panic!(
+                    "index out of bounds: the len is {} but the index is {}",
+                    self.len(),
+                    index
+                )
+            }
+        }
+    }
+}
+
 /// > The only allowed types of const parameters are u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char and bool.
 /// - https://github.com/rust-lang/reference/blob/1afcfd9c66c8f8d582e01d109cfc15976171dfe0/src/items/generics.md#const-generics
 #[rustfmt::skip]
