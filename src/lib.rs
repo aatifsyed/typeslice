@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod gen;
+
 /// A type-level slice of items.
 pub trait Slice<T: 'static> {
     /// A list of the actual items.
@@ -239,5 +241,71 @@ mod tests {
     fn test() {
         itertools::assert_equal(Empty::LIST, b"");
         itertools::assert_equal(Hello::LIST, b"hello");
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn gen() {
+        const TEMPLATE: &str = r##"
+/// Define a type-level [`Slice`](crate::Slice) of [`~prim~`]s.
+/// ```
+/// # use typestr::Slice as _;
+/// type ~example_ty~ = typestr::~prim~![~example_lit~];
+/// assert!(~example_ty~::LIST.slice_eq(&[~example_lit~]))
+/// ```
+#[macro_export]
+macro_rules! ~prim~ {
+    () => {
+        $crate::types::~nil~
+    };
+    ($first:literal $(,$rest:tt)* $(,)?) => {
+        $crate::types::~ty~<$first, $crate::~prim~!($($rest,)*)>
+    }
+}
+"##;
+
+        let mut expected = String::from("// this file is @generated in typestr's tests\n\n");
+
+        let numeric_ty = "OneTwoThree";
+        let numeric_lit = "1, 2, 3";
+
+        for (ty, nil, prim, example_ty, example_lit) in [
+            ("Usize", "UsizeNil", "usize", numeric_ty, numeric_lit),
+            ("U8", "U8Nil", "u8", numeric_ty, numeric_lit),
+            ("U16", "U16Nil", "u16", numeric_ty, numeric_lit),
+            ("U32", "U32Nil", "u32", numeric_ty, numeric_lit),
+            ("U64", "U64Nil", "u64", numeric_ty, numeric_lit),
+            ("U128", "U128Nil", "u128", numeric_ty, numeric_lit),
+            ("Isize", "IsizeNil", "isize", numeric_ty, numeric_lit),
+            ("I8", "I8Nil", "i8", numeric_ty, numeric_lit),
+            ("I16", "I16Nil", "i16", numeric_ty, numeric_lit),
+            ("I32", "I32Nil", "i32", numeric_ty, numeric_lit),
+            ("I64", "I64Nil", "i64", numeric_ty, numeric_lit),
+            ("I128", "I128Nil", "i128", numeric_ty, numeric_lit),
+            ("Char", "CharNil", "char", "Abc", "'a', 'b', 'c'"),
+            ("Bool", "BoolNil", "bool", "TrueFalse", "true, false"),
+        ] {
+            expected.push_str(
+                &TEMPLATE
+                    .trim_start()
+                    .replace("~ty~", ty)
+                    .replace("~nil~", nil)
+                    .replace("~prim~", prim)
+                    .replace("~example_ty~", example_ty)
+                    .replace("~example_lit~", example_lit),
+            );
+        }
+
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/gen.rs");
+        match std::fs::read_to_string(path) {
+            Ok(actual) if expected == actual => return, // ok
+            _ => {}
+        }
+
+        let _ = std::fs::write(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/gen.rs.expected"),
+            expected,
+        );
+        panic!("generated file does not match")
     }
 }

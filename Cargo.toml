@@ -9,7 +9,6 @@ documentation = "https://docs.rs/typestr"
 homepage = "https://github.com/aatifsyed/typestr"
 repository = "https://github.com/aatifsyed/typestr"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
 itertools = { version = "0.12.1", default-features = false }
