@@ -28,3 +28,6 @@ members = ["macros"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "do_doc_cfg"]
+
+[package.metadata.release]
+pre-release-hook = ["./check.bash"]
